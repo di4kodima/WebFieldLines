@@ -1,0 +1,241 @@
+﻿@page "/"
+@using System;
+@inject IJSRuntime JSRuntime
+<PageTitle>Home</PageTitle>
+
+<body>
+	<canvas id="myCanvas" height="800" width="1400" style="border:1px solid #000000;image-rendering: pixelated;">
+		<style>
+			body, html {
+				height: 100%;
+				margin: 0;
+			}
+
+			canvas {
+				display: block;
+			}
+		</style>
+	</canvas>
+	<button @onclick="ToggleContainer">Toggle Container</button>
+	<div>
+		<form style="@(showContainer ? "display: block;" : "display: none;")">
+			<table>
+				<tr>
+					<td>Кол-во силовых линий:</td>
+					<td><input @bind="ForceLinesCount"></td>
+					<td>Зарял частицы:</td>
+					<td><input @bind="Charge"></td>
+				</tr>
+				<tr>
+					<td>Кол-во линий напряженности:</td>
+					<td><input @bind="EcvipotentialLinesCount" ></td>
+				</tr>
+				<tr>
+					<td>Шаг силовых линий:</td>
+					<td><input @bind="ForceLineStep" ></td>
+				</tr>
+				<tr>
+					<td>Размер сетки растра:</td>
+					<td><input @bind="RastrGridSize"></td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<button @onclick="CallJavaScriptFunction">Call JavaScript Function</button>
+	<button @onclick="ClearField">Очистить поле</button>
+</body>
+
+<script>
+	var canvas = document.getElementById('myCanvas');
+	var context = canvas.getContext('2d');
+
+	document.addEventListener("DOMContentLoaded", function () {
+		var canvas = document.getElementById("myCanvas");
+		var width = canvas.width;
+		var height = canvas.height;
+		console.log("Loaded");
+		DotNet.invokeMethodAsync("BlazorApp3", "SetCanvasDimensions", width, height);
+	});
+
+	canvas.addEventListener('click', function (event) {
+		var rect = canvas.getBoundingClientRect();
+		let x = event.clientX - rect.left;
+		let y = event.clientY - rect.top;
+
+		var width = canvas.width;
+		var height = canvas.height;
+		console.log("Loaded");
+		DotNet.invokeMethodAsync("BlazorApp3", "SetCanvasDimensions", width, height);
+
+		drawCircle(x, y, 1, "green");
+		DotNet.invokeMethodAsync('BlazorApp3', 'HandleClick', x, y);
+	});
+
+		function clearCanvas() {
+			var canvas = document.getElementById('myCanvas');
+			var context = canvas.getContext('2d');
+
+			context.clearRect(0, 0, canvas.width, canvas.height);
+		} 
+		
+		function drawCircle(x, y, radius, color) {
+			var canvas = document.getElementById('myCanvas');
+			var context = canvas.getContext('2d');
+
+			context.beginPath();
+			context.arc(x, y, radius, 0, 2 * Math.PI);
+			context.fillStyle = color;
+			context.fill();
+		}
+
+		function PrintLine(x1,y1,x2,y2)
+		{
+			var canvas = document.getElementById('myCanvas');
+			var context = canvas.getContext('2d');
+			context.imageSmoothingEnabled = false;
+
+			// Set the line style
+			context.strokeStyle = '#000000';
+			context.lineWidth = 0,5;
+
+			// Draw the line
+			context.beginPath();
+			context.moveTo(x1, y1);
+			context.lineTo(x2, y2);
+			context.stroke();
+		}
+	</script>
+
+
+@code {
+	private bool showContainer = true;
+	static private double Charge;
+
+	static private int ForceLinesCount = 18;
+	static private int EcvipotentialLinesCount = 5;
+	static private double ForceLineStep = 1;
+	static private double RastrGridSize = 10;
+
+	static private List<ChargedObject> charges = new();
+
+	static private double canvasWidth = 1200;
+	static private double canvasHeight = 700;
+
+	[JSInvokable]
+	public static void SetCanvasDimensions(int width, int height)
+	{
+		canvasWidth = width;
+		canvasHeight = height;
+		Console.WriteLine($"W:{canvasWidth} H:{canvasHeight}");
+	}
+
+	private async void ToggleContainer()
+	{
+		showContainer = !showContainer;
+	}
+
+	[JSInvokable]
+	public static Task HandleClick(double x, double y)
+	{
+		charges.Add(new PointCharge(new Point() { X = x, Y = y },Charge));
+		return Task.CompletedTask;
+	}
+	private async Task ClearField()
+	{
+		charges.Clear();
+		await JSRuntime.InvokeVoidAsync("clearCanvas");
+	}
+
+	private async Task CallJavaScriptFunction()
+	{
+		await JSRuntime.InvokeVoidAsync("clearCanvas");
+		for (double i = 0; i < canvasWidth / RastrGridSize; i++)
+		{
+			for (double j = 0; j < canvasHeight / RastrGridSize; j++)
+			{
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 20000000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 2000000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 200000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 20000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 2000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, 200);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -20000000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -2000000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -200000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -20000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -2000);
+				await Rastr(0 + RastrGridSize * i, 0 + RastrGridSize * j, RastrGridSize, -200);
+			}
+		}
+	}
+
+	async Task Rastr(double x, double y, double h, double val)
+	{
+		//await Rastr(x, y, h, -val);
+		List<Point> points = new List<Point>();
+
+		Point point = new Point();
+
+		if (OnLine(x, x + h, y, y, h, val, out point))
+		{
+			points.Add(point);
+		}
+
+		if (OnLine(x + h, x + h, y, y + h, h, val, out point))
+		{
+			points.Add(point);
+		}
+
+		if (OnLine(x, x, y, y + h, h, val, out point))
+		{
+			points.Add(point);
+		}
+		if (OnLine(x, x + h, y + h, y + h, h, val, out point))
+		{
+			points.Add(point);
+		}
+		if (points.Count == 2)
+		{
+			await JSRuntime.InvokeVoidAsync("PrintLine", points[0].X,points[0].Y, points[1].X, points[1].Y);
+		}
+	}
+
+	bool OnLine(double x1, double x2, double y1, double y2, double h, double v, out Point p)
+	{
+		double f1 = func(x1, y1);
+		double f2 = func(x2, y2);
+		double min = Math.Min(f1, f2);
+		double max = Math.Max(f1, f2);
+		if (x1 != x2)
+			if (f1 < f2)
+				p.X = x1 + h * (v - min) / (max - min);
+			else
+				p.X = x1 + h * (1 - (v - min) / (max - min));
+		else
+			p.X = x1;
+
+		if (y2 != y1)
+			if (f1 > f2)
+				p.Y = y1 + h * (1 - (v - min) / (max - min));
+			else
+				p.Y = y1 + h * ((v - min) / (max - min));
+		else
+			p.Y = y1;
+		return (v <= max && v > min);
+	}
+
+	double func(double x, double y)
+	{
+		double Field = 0;
+		foreach (ChargedObject charge in charges)
+		{
+			Field += charge.GetField(x, y);
+		}
+		return Field;
+	}
+	double _func(double x, double y)
+	{
+		return x * x * y * y;
+	}
+}
